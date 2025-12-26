@@ -1,11 +1,10 @@
 import sys
 import subprocess
-from urllib.parse import urlparse
 from youtube_transcript_api import YouTubeTranscriptApi
 from openai import OpenAI
 
 if len(sys.argv) < 2:
-    print("Usage: python summarize_channel.py <channel_videos_url> [N]")
+    print("Usage: python summarize_channel.py <channel_url> [N]")
     sys.exit(1)
 
 channel_url = sys.argv[1]
@@ -13,7 +12,7 @@ N = int(sys.argv[2]) if len(sys.argv) > 2 else 2
 
 print(f"Fetching last {N} videos from channel...")
 
-# Get video IDs using yt-dlp (metadata only)
+# Get video IDs (most recent first)
 result = subprocess.run(
     [
         "yt-dlp",
@@ -46,9 +45,8 @@ for video_id in video_ids:
         text=True
     ).stdout.strip().splitlines()
 
-    title = meta[0] if len(meta) > 0 else "Unknown title"
+    title = meta[0]
     raw_date = meta[1] if len(meta) > 1 else ""
-
     formatted_date = (
         f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
         if raw_date else "Unknown date"
@@ -60,7 +58,7 @@ for video_id in video_ids:
         print(f"Skipping {video_id}: no transcript available")
         continue
 
-    transcript_text = " ".join(segment.text for segment in transcript)
+    text = " ".join(segment.text for segment in transcript)
 
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -68,13 +66,14 @@ for video_id in video_ids:
             {
                 "role": "system",
                 "content": (
-                    "Produce exactly 3 concise bullet points that capture "
-                    "the core ideas of the transcript. No filler."
+                    "Summarize the transcript into exactly 3 bullet points. "
+                    "Each bullet should capture a core idea. "
+                    "Do not produce more or fewer than 3 bullets."
                 )
             },
             {
                 "role": "user",
-                "content": transcript_text
+                "content": text
             },
         ],
     )
