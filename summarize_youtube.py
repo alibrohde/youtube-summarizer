@@ -1,4 +1,5 @@
 import sys
+import subprocess
 from urllib.parse import urlparse, parse_qs
 from youtube_transcript_api import YouTubeTranscriptApi
 from openai import OpenAI
@@ -13,7 +14,7 @@ parsed = urlparse(url)
 video_id = parse_qs(parsed.query).get("v", [None])[0]
 
 if not video_id:
-    print("Could not extract video ID")
+    print("Could not extract video ID from URL")
     sys.exit(1)
 
 print(f"Fetching transcript for {video_id}...")
@@ -28,7 +29,11 @@ response = client.chat.completions.create(
     messages=[
         {
             "role": "system",
-            "content": "Produce exactly 5 concise bullet points that capture the core ideas of the transcript."
+            "content": (
+                "Summarize the transcript into exactly 3 bullet points. "
+                "Each bullet should capture a core idea. "
+                "Do not produce more or fewer than 3 bullets."
+            )
         },
         {
             "role": "user",
@@ -42,7 +47,11 @@ summary = response.choices[0].message.content.strip()
 print("\nSummary:\n")
 print(summary)
 
-with open(f"{video_id}.summary.txt", "w") as f:
-    f.write(summary)
+# Copy to clipboard (macOS)
+subprocess.run(
+    ["pbcopy"],
+    input=summary,
+    text=True
+)
 
-print(f"\nSaved summary to {video_id}.summary.txt")
+print("\nSummary copied to clipboard.")
